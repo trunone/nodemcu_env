@@ -137,7 +137,7 @@ void loop() {
   }
 }
 
-void recordMaxValue(auto value, Chart chart, auto *axis) {
+void recordMaxValue(auto value, Chart &chart, auto *axis) {
   if (last_hour != ntp_time.tm_hour) axis[ntp_time.tm_hour] = 0;
   if (value > axis[ntp_time.tm_hour]) {
     axis[ntp_time.tm_hour] = value;
