@@ -17,7 +17,9 @@
 const char *ssid = STASSID;
 const char *pass = STAPSK;
 
-unsigned long last;
+unsigned long last = 0;
+int last_hour = 0;
+struct tm ntp_time;
 
 IPAddress ipaddr(192, 168, 100, 15);
 IPAddress subnet(255, 255, 255, 0);
@@ -95,68 +97,52 @@ void setup() {
 }
 
 void loop() {
-  unsigned long now = millis();
+  auto now = millis();
   if (now - last > 10000) {
-    struct tm tmstruct ;
-    tmstruct.tm_year = 0;
-    if(getLocalTime(&tmstruct, 5000)) {
-      Serial.printf("\nNow is : %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct.tm_year) + 1900, (tmstruct.tm_mon) + 1, tmstruct.tm_mday, tmstruct.tm_hour, tmstruct.tm_min, tmstruct.tm_sec);
+    ntp_time.tm_year = 0;
+    if(getLocalTime(&ntp_time, 5000)) {
+      Serial.printf("\nNow is : %d-%02d-%02d %02d:%02d:%02d\n", (ntp_time.tm_year) + 1900, (ntp_time.tm_mon) + 1, ntp_time.tm_mday, ntp_time.tm_hour, ntp_time.tm_min, ntp_time.tm_sec);
       {
         auto temp = bmp.readTemperature();
-        if (temp > max_temperature_bmp_axis[tmstruct.tm_hour]) {
-          max_temperature_bmp_axis[tmstruct.tm_hour] = temp;
-          max_temperature_bmp_chart.updateX(time_axis, tmstruct.tm_hour+1);
-          max_temperature_bmp_chart.updateY(max_temperature_bmp_axis, tmstruct.tm_hour+1);
-        }
+        recordMaxValue(temp, max_temperature_bmp_chart, max_temperature_bmp_axis);
         temperature_bmp.update(temp);
       }
       {
         auto temp = bmp.readPressure()/100.0;
-        if (temp > max_pressure_axis[tmstruct.tm_hour]) {
-          max_pressure_axis[tmstruct.tm_hour] = temp;
-          max_pressure_chart.updateX(time_axis, tmstruct.tm_hour+1);
-          max_pressure_chart.updateY(max_pressure_axis, tmstruct.tm_hour+1);
-        }
+        recordMaxValue(temp, max_pressure_chart, max_pressure_axis);
         pressure.update((float)temp);
       }
       {
         auto temp = si.readHumidity();
-        if (temp > max_humidity_axis[tmstruct.tm_hour]) {
-          max_humidity_axis[tmstruct.tm_hour] = temp;
-          max_humidity_chart.updateX(time_axis, tmstruct.tm_hour+1);
-          max_humidity_chart.updateY(max_humidity_axis, tmstruct.tm_hour+1);
-        }
+        recordMaxValue(temp, max_humidity_chart, max_humidity_axis);
         humidity.update(temp);
       }
       {
         auto temp = si.readTemperature();
-        if (temp > max_temperature_si_axis[tmstruct.tm_hour]) {
-          max_temperature_si_axis[tmstruct.tm_hour] = temp;
-          max_temperature_si_chart.updateX(time_axis, tmstruct.tm_hour+1);
-          max_temperature_si_chart.updateY(max_temperature_si_axis, tmstruct.tm_hour+1);
-        }
+        recordMaxValue(temp, max_temperature_si_chart, max_temperature_si_axis);
         temperature_si.update(temp);
       }
       if (ccs.available()) {
         if (!ccs.readData()) {
-          if (ccs.geteCO2() > max_co2_axis[tmstruct.tm_hour]) {
-            max_co2_axis[tmstruct.tm_hour] = ccs.geteCO2();
-            max_co2_chart.updateX(time_axis, tmstruct.tm_hour+1);
-            max_co2_chart.updateY(max_co2_axis, tmstruct.tm_hour+1);
-          }
+          recordMaxValue(ccs.geteCO2(), max_co2_chart, max_co2_axis);
           co2.update(ccs.geteCO2());
-          if (ccs.getTVOC() > max_tvoc_axis[tmstruct.tm_hour]) {
-            max_tvoc_axis[tmstruct.tm_hour] = ccs.getTVOC();
-            max_tvoc_chart.updateX(time_axis, tmstruct.tm_hour+1);
-            max_tvoc_chart.updateY(max_tvoc_axis, tmstruct.tm_hour+1);
-          }
+          recordMaxValue(ccs.getTVOC(), max_tvoc_chart, max_tvoc_axis);
           tvoc.update(ccs.getTVOC());
         }
       }
       dashboard.sendUpdates();
     }
-
     last = now;
+    last_hour = ntp_time.tm_hour;
+  }
+}
+
+void recordMaxValue(auto value, Chart chart, auto *axis) {
+  if (last_hour != ntp_time.tm_hour) axis[ntp_time.tm_hour] = 0;
+  if (value > axis[ntp_time.tm_hour]) {
+    axis[ntp_time.tm_hour] = value;
+    chart.updateX(time_axis, ntp_time.tm_hour+1);
+    chart.updateY(max_temperature_bmp_axis, ntp_time.tm_hour+1);
   }
 }
 
