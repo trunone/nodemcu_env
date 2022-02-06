@@ -142,7 +142,7 @@ void recordMaxValue(auto value, Chart &chart, auto *axis) {
   if (value > axis[ntp_time.tm_hour]) {
     axis[ntp_time.tm_hour] = value;
     chart.updateX(time_axis, ntp_time.tm_hour+1);
-    chart.updateY(max_temperature_bmp_axis, ntp_time.tm_hour+1);
+    chart.updateY(axis, ntp_time.tm_hour+1);
   }
 }
 
