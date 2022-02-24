@@ -52,7 +52,6 @@ float max_pressure_axis[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0
 int max_co2_axis[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,};
 int max_tvoc_axis[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,};
 
-
 Adafruit_BMP280 bmp; // I2C
 Adafruit_Si7021 si;
 Adafruit_CCS811 ccs;
@@ -63,7 +62,7 @@ void setup() {
 
   if (!bmp.begin(0x76, 0x58)) {
     Serial.println(F("Could not find a valid BMP280 sensor, check wiring!"));
-    while (1);
+    ESP.reset();
   }
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
@@ -73,12 +72,12 @@ void setup() {
 
   if (!si.begin()) {
     Serial.println("Did not find Si7021 sensor!");
-    while (1);
+    ESP.reset();
   }
 
   if (!ccs.begin()) {
     Serial.println("Failed to start CCS811! Please check your wiring.");
-    while (1);
+    ESP.reset();
   }
 
   Serial.print("WiFi Connecting");
@@ -100,7 +99,7 @@ void loop() {
   auto now = millis();
   if (now - last > 10000) {
     ntp_time.tm_year = 0;
-    if(getLocalTime(&ntp_time, 5000)) {
+    if(getLocalTime(&ntp_time)) {
       Serial.printf("\nNow is : %d-%02d-%02d %02d:%02d:%02d\n", (ntp_time.tm_year) + 1900, (ntp_time.tm_mon) + 1, ntp_time.tm_mday, ntp_time.tm_hour, ntp_time.tm_min, ntp_time.tm_sec);
       {
         auto temp = bmp.readTemperature();
@@ -146,24 +145,12 @@ void recordMaxValue(auto value, Chart &chart, auto *axis) {
   }
 }
 
-bool getLocalTime(struct tm * info, uint32_t ms) {
-  uint32_t count = ms / 10;
+bool getLocalTime(struct tm * info) {
   time_t now;
 
   time(&now);
   localtime_r(&now, info);
 
-  if (info->tm_year > 100) {
-    return true;
-  }
-
-  while (count--) {
-    delay(10);
-    time(&now);
-    localtime_r(&now, info);
-    if (info->tm_year > 100) {
-      return true;
-    }
-  }
+  if (info->tm_year > 100) return true;
   return false;
 }
