@@ -1,4 +1,7 @@
+#include <FS.h> 
+
 #include <ESP8266WiFi.h>
+#include <ESPAsyncWiFiManager.h>
 #include <WiFiUdp.h>
 
 #include "Adafruit_BMP280.h"
@@ -6,16 +9,6 @@
 #include "Adafruit_CCS811.h"
 
 #include "ESPDash.h"
-
-#define PLACE "bath"
-
-#ifndef STASSID
-#define STASSID ""
-#define STAPSK  ""
-#endif
-
-const char *ssid = STASSID;
-const char *pass = STAPSK;
 
 unsigned long last = 0;
 int last_hour = 0;
@@ -26,6 +19,9 @@ IPAddress subnet(255, 255, 255, 0);
 IPAddress gateway(192, 168, 100, 1);
 IPAddress dns1(8, 8, 8, 8);
 IPAddress dns2(9, 9, 9, 9);
+
+AsyncWebServer cap_srv(80);
+DNSServer dns;
 
 AsyncWebServer webserver(80);
 ESPDash dashboard(&webserver);
@@ -80,15 +76,15 @@ void setup() {
     ESP.reset();
   }
 
-  Serial.print("WiFi Connecting");
-  WiFi.mode(WIFI_STA);
-  WiFi.config(ipaddr, gateway, subnet, dns1, dns2);
-  WiFi.begin(ssid, pass);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.print('.');
-    delay(100);
+  AsyncWiFiManager wifiManager(&cap_srv, &dns);
+  wifiManager.setSTAStaticIPConfig(ipaddr, gateway, subnet, dns1, dns2);
+
+  if (!wifiManager.autoConnect()) {
+    Serial.println("failed to connect, we should reset as see if it connects");
+    delay(3000);
+    ESP.reset();
+    delay(5000);
   }
-  Serial.println("Done");
 
   configTime(3600, 0, "time.nist.gov", "0.pool.ntp.org", "1.pool.ntp.org");
   
